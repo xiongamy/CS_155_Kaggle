@@ -3,57 +3,82 @@
 from sklearn import svm
 from sklearn.model_selection import KFold
 import numpy as np
+import random
+import sys
 
-# decide hyperparameter C
-# First run:
-# 0.01      0.1     1       10      100
-# 0.49265   0.2696  0.1665  0.15015 0.1522
-# Second run:
-# 3         30      300
-# 0.1558    0.1495  0.15485
-# Third run:
-# 5.7       10      18      32      57
-# 0.15275   0.15115 0.1513  0.1481  0.15055
-# Fourth run:
-# 30        32      34      36      38
-# 0.1511    0.15    0.15155 0.15035 0.15085
-# good C value is ~32
+if len(sys.argv) < 2:
+    print('Enter number of iterations')
+    sys.exit()
 
 train_data = np.loadtxt('../data/training_data.txt', delimiter=' ', skiprows=1)
+importance = np.loadtxt('../data/order.txt', delimiter=' ').astype(int)
 
 Y = train_data[:, 0]
 X = train_data[:, 1:]
 
-# kf = KFold(n_splits=5, shuffle=True)
-# cs = [30, 32, 34, 36, 38]
-# errs = []
-# for c_val in cs:
-#     total_err = 0.0
-#     for train_indices, test_indices in kf.split(X):
-#         train_in = []
-#         train_out = []
-#         for i in train_indices:
-#             train_in.append(X[i])
-#             train_out.append(Y[i])
-#         clf = svm.SVC(C=c_val)
-#         clf.fit(train_in, train_out)      
-#         test_in = []
-#         test_out = []
-#         for i in test_indices:
-#             test_in.append(X[i])
-#             test_out.append(Y[i])        
-#         predicted = clf.predict(test_in)
-#         err = 0.
-#         length = len(test_out)
-#         for i in range(length):
-#             if predicted[i] != test_out[i]:
-#                 err += 1.0
-#         err /= length
-#         total_err += err
-#     errs.append(total_err / 5)
-# print(cs)
-# print(errs)
+kf = KFold(n_splits=5, shuffle=True, random_state=0)
+min_log_cval = -1
+max_log_cval = 6
+num_runs = int(sys.argv[1])
 
+hyperps = np.loadtxt('../data/SVM_hyperps.txt', delimiter=' ', skiprows=1)
+for _ in range(num_runs):
+    # choose c_val and dimensions
+    c_val = np.exp(random.uniform(min_log_cval, max_log_cval))
+    dimensions = random.randint(1, len(importance))
+    for hyperp in hyperps:
+        if random.random() < 0.1:
+            if random.randint(0, 1) == 0:
+                c_val = hyperp[0]
+            else:
+                dimensions = int(hyperp[1])
+            break
+
+    hyperps = np.concatenate((hyperps, [[c_val, dimensions, 0]]))
+    
+    print('Running with C value ', c_val , ' and ', dimensions, ' dimensions...')
+    
+    indices = [importance[i] for i in range(dimensions)]
+    
+    total_err = 0.0
+    num = 1
+    
+    X_train = []
+    for i in range(len(X)):
+        X_train.append([X[i, j] for j in indices])
+    X_train = np.array(X_train)
+    
+    
+    for train_indices, test_indices in kf.split(X_train):
+        train_in = []
+        train_out = []
+        for i in train_indices:
+            train_in.append(X_train[i])
+            train_out.append(Y[i])
+        clf = svm.SVC(C=c_val)
+        
+        print('    Running ', num)
+        
+        clf.fit(train_in, train_out)      
+        test_in = []
+        test_out = []
+        for i in test_indices:
+            test_in.append(X_train[i])
+            test_out.append(Y[i])        
+        predicted = clf.predict(test_in)
+        err = 0.
+        length = len(test_out)
+        for i in range(length):
+            if predicted[i] != test_out[i]:
+                err += 1.0
+        err /= length
+        print('    Test error: ', str(err))
+        total_err += err
+        num += 1
+    hyperps[-1, -1] = total_err / 5
+    hyperps = sorted(hyperps, key=lambda x : x[2])
+    np.savetxt('../data/SVM_hyperps.txt', np.array(hyperps), fmt='%f', delimiter=' ', header='c dimensions error', comments='')
+'''
 test_data = np.loadtxt('../data/test_data.txt', delimiter=' ', skiprows=1)
 
 clf = svm.SVC(C=32)
@@ -66,3 +91,4 @@ ids = np.linspace(1, length, num=length)
 
 to_save = np.concatenate((np.transpose([ids]), np.transpose([predicted])), axis=1)
 np.savetxt("../submissions/svm_submission2.csv", to_save, fmt='%i', delimiter=',', header='Id,Prediction', comments='')
+'''
