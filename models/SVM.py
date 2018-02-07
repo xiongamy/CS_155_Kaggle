@@ -85,7 +85,6 @@ while num_runs != 0:
             max_dist = dists[i]
             max_center = centers[i]
     
-    print(max_center)
     c_val = np.exp(max_center[0] * 7)
     dimensions = int(math.floor(max_center[1] * 1000))
     if dimensions < 0:
