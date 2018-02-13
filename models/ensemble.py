@@ -1,6 +1,6 @@
 import numpy as np
 
-files = ['rf_submission1.csv', 'svm_submission2.csv',
+files = ['rf_submission1.csv', 'rf_submission2.csv', 'svm_submission2.csv',
          'svm_submission3.csv', 'svm_submission4.csv']
 models = []
          
